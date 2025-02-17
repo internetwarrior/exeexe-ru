@@ -32,21 +32,27 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    # Third-party apps (should be before Django apps if they modify core behavior)
     'daphne',
+    'channels',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'corsheaders',
+
+    # Django built-in apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'channels', 
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'corsheaders',
+
+    # Your apps (custom apps should come last)
     'user',
     'chat',
     'post',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
