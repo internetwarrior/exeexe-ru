@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django import forms
 from .models import ChatRoom, Message
-from user.models import CustomUser 
 
 class MessageForm(forms.ModelForm):
     class Meta:
