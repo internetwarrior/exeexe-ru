@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-&dspe+k%wkogf8jm&03(rp1$!e8ug8v-qktwwp3=65&*w(4k#%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['exeexe.ru','www.exeexe.ru']
 
 
 # Application definition
@@ -155,7 +155,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'build/static'),  # React static files location
 ]
-
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
