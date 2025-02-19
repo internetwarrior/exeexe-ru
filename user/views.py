@@ -29,7 +29,7 @@ from rest_framework.response import Response
 from .models import Friendship
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-
+from rest_framework.permissions import IsAuthenticated
 
 
 
@@ -38,6 +38,25 @@ def chat_view(request):
 
 
 User = get_user_model()
+
+
+class FriendsRequestsListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, format=None):
+        # Fetch the list of friend requests where the user is the requester
+        friendships = Friendship.objects.filter(user=request.user, user_approved=False, friend_approved=True)
+
+        # Collect the friends from the friendships
+        friends = []
+        for friendship in friendships:
+            friends.append(friendship.friend)
+
+        # Serialize the list of friends (friend requests)
+        serializer = FriendSerializer(friends, many=True)
+        return Response(serializer.data)
+
+
 
 class FriendsListView(APIView):
     permission_classes = [AllowAny]  # Allow any user to access this view
@@ -50,7 +69,8 @@ class FriendsListView(APIView):
 
         # Fetch the list of friends where the user is either 'user' or 'friend' and both are approved
         friendships = Friendship.objects.filter(
-            Q(user=user,  user_approved=True) | Q(friend=user, friend_approved=True)
+            Q(user=user, user_approved=True, friend_approved=True) | 
+            Q(friend=user, user_approved=True, friend_approved=True)
         )
 
         # Collect the friends from the friendships

@@ -28,6 +28,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['exeexe.ru','www.exeexe.ru']
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://exeexe.ru',
+    'https://www.exeexe.ru',
+    'http://exeexe.ru',
+    'http://www.exeexe.ru',
+]
+    # if DEBUG:
+    #     ALLOWED_HOSTS = ['*']
 
 # Application definition
 

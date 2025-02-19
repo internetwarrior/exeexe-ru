@@ -6,12 +6,13 @@ from rest_framework_simplejwt.views import (
 )
 from . import views
 
-from .views import UserProfileView,FriendsListView
+from .views import UserProfileView,FriendsListView,FriendsRequestsListView
 
 urlpatterns = [
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path('profile/<str:username>/', UserProfileByUsernameView.as_view(), name='user-profile-by-username'),
 
+    path('friend/requests/',FriendsRequestsListView.as_view(),name='friends-requests'),
     path('friend/toggle_request/', views.send_cancel_friend_request, name='send_cancel_friend_request'),
 
     path('friends/<str:username>/', FriendsListView.as_view(), name='friends-list'),

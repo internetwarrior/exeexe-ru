@@ -31,10 +31,12 @@ class PasswordChangeSerializer(serializers.Serializer):
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
+    first_name = serializers.CharField(max_length=30)
+    last_name = serializers.CharField(max_length=30)
 
     class Meta:
-        model = get_user_model()  # Use CustomUser model here
-        fields = ['username', 'email', 'password', 'password2']
+        model = get_user_model()
+        fields = ['username', 'email', 'password', 'password2', 'first_name', 'last_name', ]
 
     def validate(self, data):
         if data['password'] != data['password2']:
@@ -43,5 +45,5 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password2')
-        user = get_user_model().objects.create_user(**validated_data)  # Use CustomUser model
+        user = get_user_model().objects.create_user(**validated_data)
         return user
