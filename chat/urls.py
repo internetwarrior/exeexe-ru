@@ -3,6 +3,7 @@ from . import views
 
 
 urlpatterns = [
-    path('messages/<str:chat_name>/', views.get_messages_by_chat_name, name='get_messages_by_chat_name'),
+    path('messages/<str:user_id>/', views.ChatHistoryView.as_view(), name='message-history'),
     path('chatrooms/', views.get_chatrooms_by_user, name='get_chatrooms_by_user'),
+    path('chatroom/', views.create_or_get_chat, name='get_or_create_chatroom'),
 ]

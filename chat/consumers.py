@@ -2,35 +2,37 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
-from .models import ChatRoom, Message
 import jwt
 from django.conf import settings
+from urllib.parse import parse_qs
+from .models import Message
 
 User = get_user_model()
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
-        self.room_group_name = f"chat_{self.room_name}"
+        query_string = self.scope.get("query_string", b"").decode()
+        params = parse_qs(query_string)
+        token = params.get("token", [None])[0]
 
-        # Get JWT token from the headers
-        token = self.scope.get("query_string", b"").decode().split('=')[-1]  # Extract token
-        if token:
-            try:
-                # Decode the JWT token to get user info
-                decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-                self.user = await database_sync_to_async(User.objects.get)(id=decoded_token["user_id"])
-            except jwt.ExpiredSignatureError:
-                await self.close(code=4000)  # Token has expired
-                return
-            except jwt.InvalidTokenError:
-                await self.close(code=4001)  # Invalid token
-                return
-        else:
+        if not token:
             await self.close(code=4002)  # No token provided
             return
 
-        # If the user is authenticated, proceed with connecting to the room
+        try:
+            decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            self.user = await database_sync_to_async(User.objects.get)(id=decoded_token["user_id"])
+        except jwt.ExpiredSignatureError:
+            await self.close(code=4000)  # Token expired
+            return
+        except jwt.InvalidTokenError:
+            await self.close(code=4001)  # Invalid token
+            return
+
+        # Each user has their own private group
+        self.room_group_name = f"user_{self.user.id}"
+
+        # Add user to their WebSocket group
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
@@ -39,39 +41,70 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        message_content = data["content"]
-        username = self.user.username  # Use the authenticated user’s username
-
-        # Retrieve or create the chat room object
+        message_content = data.get("content")
+        send_to_id = data.get("send_to")
+        
         try:
-            chat_room = await database_sync_to_async(ChatRoom.objects.get)(name=self.room_name)
-        except ChatRoom.DoesNotExist:
-            return  # Handle chat room not found
+            sender__ = await database_sync_to_async(User.objects.get)(username= self.user)
+        except:
+            return
 
-        # Save the message to the database
+        if not send_to_id or not message_content:
+            return
+        
+        try:
+            recipient = await database_sync_to_async(User.objects.get)(id=send_to_id)
+        except User.DoesNotExist:
+            return  # Handle chat room not found
+        # Create and save message
         message = Message(
-            chat_room=chat_room,
             sender=self.user,
+            receiver=recipient,
             content=message_content
         )
+
         await database_sync_to_async(message.save)()
 
-        # Send message to WebSocket group
+        send_to_group = f"user_{send_to_id}"
+
+        # Send message only to the recipient's WebSocket group
+        print(sender__.id)
+        await self.channel_layer.group_send(
+            send_to_group,
+            {
+                "type": "chat_message",
+                "content": message_content,
+                "sender": self.user.username,
+                "goal":sender__.id,
+            }
+        )
+
+        # Optionally, send message to the current room group if needed
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "chat_message",
                 "content": message_content,
-                "sender": username,
+                "sender": self.user.username,
+                'goal':'myself',
             }
         )
 
-    async def chat_message(self, event):
-        message = event["content"]
-        username = event["sender"]
 
-        # Send message to WebSocket client
+
+
+    async def chat_message(self, event):
+        # Only the intended recipient receives this message
+        print(event)
         await self.send(text_data=json.dumps({
-            "content": message,
-            "sender": username,
+            "content": event["content"],
+            "sender": event["sender"],
+            "goal":event['goal'],
         }))
+
+    @database_sync_to_async
+    def get_user_by_id(self, user_id):
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None

@@ -18,7 +18,8 @@ application = ProtocolTypeRouter(
         "websocket": AllowedHostsOriginValidator(
             JWTAuthMiddlewareStack(
                 URLRouter([
-                    re_path(r"ws/chat/(?P<room_name>[\w-]+)/$", ChatConsumer.as_asgi()),  # Allow hyphens
+                    # re_path(r"ws/chat/(?P<room_name>[\w-]+)/$", ChatConsumer.as_asgi()),  # Allow hyphens
+                    re_path(r"ws/chat/$", ChatConsumer.as_asgi()),
                 ])
             )
         ),
