@@ -28,16 +28,16 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['exeexe.ru','www.exeexe.ru']
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://nobox.kg',
-    'https://www.nobox.kg',
-    'http://nobox.kg',
-    'http://www.nobox.kg',
-     'http://8da6-92-62-69-244.ngrok-free.app',  # Add http version if needed
-    'https://8da6-92-62-69-244.ngrok-free.app',  # Add https version
-]
-# if DEBUG:
-#     ALLOWED_HOSTS = ['*']
+# CSRF_TRUSTED_ORIGINS = [
+#     'https://nobox.kg',
+#     'https://www.nobox.kg',
+#     'http://nobox.kg',
+#     'http://www.nobox.kg',
+#      'http://8da6-92-62-69-244.ngrok-free.app',  # Add http version if needed
+#     'https://8da6-92-62-69-244.ngrok-free.app',  # Add https version
+# ]
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
 
 # Application definition
 
