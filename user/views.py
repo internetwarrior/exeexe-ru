@@ -12,6 +12,7 @@ from .serializers import PasswordResetSerializer, PasswordChangeSerializer, Regi
 from rest_framework import generics
 
 from .models import CustomUser
+
 # views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -38,6 +39,28 @@ def chat_view(request):
 
 
 User = get_user_model()
+
+from rest_framework import serializers
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        login_field = attrs.get("username")
+        password = attrs.get("password")
+        user = CustomUser.objects.filter(Q(username=login_field) | Q(email=login_field)).first()
+        if user and user.check_password(password):
+            attrs["username"] = user.username
+        else:
+            raise serializers.ValidationError("No active account found with the given credentials")
+
+        return super().validate(attrs)
+    
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class FriendsRequestsListView(APIView):
