@@ -47,3 +47,16 @@ class Friendship(models.Model):
         self.friend_approved = True
         self.save()
 
+class FriendRequest(models.Model):
+    friendship = models.ForeignKey(Friendship, on_delete=models.CASCADE, related_name="requests")  # Changed to ForeignKey with CASCADE
+    from_user = models.ForeignKey(CustomUser, on_delete=models.DO_NOTHING, related_name="sent_friend_requests")
+    to_user = models.ForeignKey(CustomUser, on_delete=models.DO_NOTHING, related_name="received_friend_requests")
+    status = models.BooleanField(null=True, default=None)  # None = Pending, True = Accepted, False = Rejected
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def can_create_new_request(self):
+        from django.utils.timezone import now
+        return (now() - self.updated_at).days >= 2
+
+

@@ -12,7 +12,7 @@ urlpatterns = [
     path('api/', include('user.urls')),
     path('api/', include('chat.urls')),
     path('api/', include('post.urls')),
-    re_path(r'^.*$', index, name='index'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += [re_path(r'^.*$', index, name='index'),]

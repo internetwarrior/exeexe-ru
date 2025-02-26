@@ -1,38 +1,28 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from rest_framework.permissions import AllowAny
-from rest_framework import status, permissions
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404, redirect, render
 from django.core.mail import send_mail
+from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode
-from django.contrib.auth import get_user_model
-from django.contrib import messages
-from .serializers import PasswordResetSerializer, PasswordChangeSerializer, RegisterSerializer, UserProfileSerializer
-from rest_framework import generics
+from django.db.models import Q
 
-from .models import CustomUser
-
-# views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import AllowAny 
-from .models import Friendship
-from .serializers import FriendSerializer
-from django.contrib.auth import get_user_model
-from django.db.models import Q  # Import Q here
-
-from django.contrib.auth import get_user_model
-from rest_framework import status, permissions
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from .models import Friendship
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from rest_framework.permissions import IsAuthenticated
-
-
+from .models import CustomUser, FriendRequest, Friendship
+from .serializers import (
+    FriendSerializer,
+    PasswordChangeSerializer,
+    PasswordResetSerializer,
+    RegisterSerializer,
+    UserProfileSerializer,
+)
 
 def chat_view(request):
     return render(request, 'user/chat.html')
@@ -40,10 +30,69 @@ def chat_view(request):
 
 User = get_user_model()
 
-from rest_framework import serializers
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+
+#Profile
+@permission_classes([permissions.IsAuthenticated])
+@api_view(['POST'])
+def edit_profile(request):
+    user = request.user
+    data = request.data
+    user.first_name = data.get('first_name', user.first_name)
+    user.last_name = data.get('last_name', user.last_name)
+    user.username = data.get('username', user.username)
+    user.birthdate = data.get('birthdate', user.birthdate)
+    # user.birthday = data.get('birthday', user.birthday)
+
+    user.save()
+    return Response({"detail": "Profile updated successfully."}, status=status.HTTP_200_OK)
+
+@permission_classes([permissions.IsAuthenticated])
+@api_view(['POST'])
+def edit_profile_picture(request):
+    user = request.user
+    profile_picture = request.FILES.get('profile_picture')
+    
+    if not profile_picture:
+        return Response({"detail": "No profile picture provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.profile_picture = profile_picture
+    user.save()
+    
+    return Response({"detail": "Profile picture updated successfully."}, status=status.HTTP_200_OK)
+
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed
+
+@permission_classes([permissions.IsAuthenticated])
+@api_view(['POST'])
+def change_email_and_password(request):
+    user = request.user
+    data = request.data
+
+    prev_password = data.get('password')
+    new_email = data.get('email')
+    new_password = data.get('new_password')
+
+    if not prev_password:
+        return Response({"detail": "Previous password is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Authenticate the user with the previous password
+    if not authenticate(username=user.username, password=prev_password):
+        raise AuthenticationFailed("Previous password is incorrect.")
+    
+    # Update the email if provided
+    if new_email and new_email != user.email:
+        user.email = new_email
+
+    # Update the password if provided
+    if new_password:
+        user.set_password(new_password)
+    
+    # Save the changes
+    user.save()
+
+    return Response({"detail": "Email and/or password updated successfully."}, status=status.HTTP_200_OK)
 
 
 
@@ -65,21 +114,26 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+class CustomUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'first_name', 'last_name','profile_picture',]
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    from_user = CustomUserSerializer()
+    to_user = CustomUserSerializer()
+
+    class Meta:
+        model = FriendRequest
+        fields = ['friendship', 'from_user', 'to_user', 'status', 'created_at', 'updated_at']
 
 class FriendsRequestsListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, format=None):
-        # Fetch the list of friend requests where the user is the requester
-        friendships = Friendship.objects.filter(user=request.user, user_approved=False, friend_approved=True)
+        friend_requests = FriendRequest.objects.filter(to_user=request.user,status =None)
 
-        # Collect the friends from the friendships
-        friends = []
-        for friendship in friendships:
-            friends.append(friendship.friend)
-
-        # Serialize the list of friends (friend requests)
-        serializer = FriendSerializer(friends, many=True)
+        serializer = FriendRequestSerializer(friend_requests, many=True)
         return Response(serializer.data)
 
 
@@ -115,10 +169,10 @@ class FriendsListView(APIView):
 @permission_classes([permissions.IsAuthenticated])
 @api_view(['POST'])
 def send_cancel_friend_request(request):
-    target_username = request.data.get('target_username')  # Ensure this is received
+    target_username = request.data.get('target_username')
     if not target_username:
         return Response({"detail": "Target username is required."}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     try:
         target_user = get_user_model().objects.get(username=target_username)
     except get_user_model().DoesNotExist:
@@ -128,18 +182,63 @@ def send_cancel_friend_request(request):
         return Response({"detail": "You cannot send a friend request to yourself."}, status=status.HTTP_400_BAD_REQUEST)
 
     # Check if the friendship already exists
-    friendship = Friendship.objects.filter(user=request.user, friend=target_user).first()
+    friendship = Friendship.objects.filter(
+        Q(user=request.user, friend=target_user) | Q(user=target_user, friend=request.user)
+    ).first()
 
     if friendship:
-        # Toggle the user_approved status (only toggle this, not friend_approved)
-        friendship.user_approved = not friendship.user_approved
-        friendship.save()
+        friend_request = FriendRequest.objects.filter(friendship=friendship,status = None, to_user = request.user).first()
+        can_request = FriendRequest.objects.filter(friendship=friendship, from_user = request.user).first()
+        print(can_request)
+        if friendship.user == request.user:
+            if friend_request:
+                friend_request.status = True
+                friend_request.save()
+            elif (can_request and can_request.can_create_new_request() and friendship.friend_approved == False and friendship.user_approved == False) or (can_request is None and friendship.friend_approved == False and friendship.user_approved == False):
+                FriendRequest.objects.create(from_user=request.user, to_user=target_user, friendship=friendship)
+            friendship.user_approved = not friendship.user_approved
+        elif friendship.friend == request.user:
+            if friend_request:
+                friend_request.status = True
+                friend_request.save()
+            elif ((can_request and can_request.can_create_new_request() and friendship.friend_approved == False and friendship.user_approved == False) or (can_request is None and friendship.friend_approved == False and friendship.user_approved == False)):
+                FriendRequest.objects.create(from_user=request.user, to_user=target_user, friendship=friendship)
 
-        return Response({"user_approved": friendship.user_approved}, status=status.HTTP_200_OK)
+            friendship.friend_approved = not friendship.friend_approved
+           
+        else:
+            return Response({"detail": "Unauthorized action."}, status=status.HTTP_403_FORBIDDEN)
+
+        friendship.save()
+        return Response({
+            "user_approved": friendship.user_approved,
+            "friend_approved": friendship.friend_approved
+        }, status=status.HTTP_200_OK)
 
     # Create a new friendship request if it doesn't exist
-    Friendship.objects.create(user=request.user, friend=target_user, user_approved=True, friend_approved=False)
+    new_friendship = Friendship.objects.create(user=request.user, friend=target_user, user_approved=True, friend_approved=False)
+    FriendRequest.objects.create(from_user = request.user, to_user=target_user , friendship = new_friendship)
     return Response({"user_approved": True}, status=status.HTTP_201_CREATED)
+
+
+@permission_classes([permissions.IsAuthenticated])
+@api_view(['POST'])
+def cancel_friend_request(request):
+    try:
+        from_user = get_user_model().objects.get(username=request.data['target_username'])
+    except get_user_model().DoesNotExist:
+        return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    friend_request = FriendRequest.objects.filter(from_user=from_user, to_user=request.user, status=None).first()
+
+    if not friend_request:
+        return Response({"detail": "No pending friend request found."}, status=status.HTTP_404_NOT_FOUND)
+
+    friend_request.status = False
+    friend_request.save()
+    return Response({"detail": "Friend request canceled."}, status=status.HTTP_200_OK)
+
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -149,11 +248,13 @@ def check_if_friends(request, target_username):
         target_user = get_user_model().objects.get(username=target_username)
         
         # Check if there's an existing friendship where the user is approved
-        friendship = Friendship.objects.filter(user=request.user, friend=target_user).first()
+        friendship = Friendship.objects.filter(
+            Q(user=request.user, friend=target_user, user_approved=True) | 
+            Q(friend=request.user, user=target_user, friend_approved=True)
+        ).first()
 
         if friendship:
-            # Check if the current user is approved in the friendship
-            is_friend = friendship.user_approved
+            is_friend = True
         else:
             is_friend = False
 

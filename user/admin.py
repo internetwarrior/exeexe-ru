@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Friendship
+from .models import CustomUser, Friendship,FriendRequest
 
 class CustomUserAdmin(admin.ModelAdmin):
     model = CustomUser
@@ -17,3 +17,4 @@ class FriendshipAdmin(admin.ModelAdmin):
     list_filter = ('user_approved', 'friend_approved', 'created_at')
 
 admin.site.register(Friendship)
+admin.site.register(FriendRequest)
