@@ -6,11 +6,14 @@ from rest_framework_simplejwt.views import (
 )
 from . import views
 
-from .views import UserProfileView,FriendsListView,FriendsRequestsListView
+from .views import UserProfileView,FriendsListView,FriendsRequestsListView,SearchUserView
+
 
 urlpatterns = [
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
+    
+    path("search-user/", SearchUserView.as_view(), name="search-user"),
 
     path('profile/edit-picture/', views.edit_profile_picture, name='edit_profile_picture'),
     path('profile/<str:username>/', UserProfileByUsernameView.as_view(), name='user-profile-by-username'),

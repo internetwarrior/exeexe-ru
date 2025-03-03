@@ -29,6 +29,46 @@ def chat_view(request):
 
 
 User = get_user_model()
+class CustomUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'first_name', 'last_name','profile_picture',]
+
+
+#Searching
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
+from .models import CustomUser
+
+class SearchUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get("q", "").strip()
+        if not query:
+            return Response({"users": []})
+        
+        # Split query into words
+        search_terms = query.split()
+        
+        # Create base query filter
+        query_filter = Q()
+
+        for term in search_terms:
+            # Add filtering conditions for each term for username, first_name, and last_name
+            query_filter |= Q(username__icontains=term) | Q(first_name__icontains=term) | Q(last_name__icontains=term)
+
+        # Apply filter to the CustomUser model
+        users = CustomUser.objects.filter(query_filter)
+        
+        # Serialize the result
+        serializer = CustomUserSerializer(users, many=True)
+        return Response({"users": serializer.data})
+
+
+
 
 
 
@@ -46,6 +86,10 @@ def edit_profile(request):
 
     user.save()
     return Response({"detail": "Profile updated successfully."}, status=status.HTTP_200_OK)
+
+
+
+
 
 @permission_classes([permissions.IsAuthenticated])
 @api_view(['POST'])
@@ -114,10 +158,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
-class CustomUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomUser
-        fields = ['username', 'first_name', 'last_name','profile_picture',]
 
 class FriendRequestSerializer(serializers.ModelSerializer):
     from_user = CustomUserSerializer()
