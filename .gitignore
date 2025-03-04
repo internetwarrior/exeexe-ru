@@ -2,6 +2,11 @@
 env/
 venv/
 
+# Ignore SQLite database
+db.sqlite3
+
 # Ignore media files
 /media/
+
+# Ignore frontend directory
 /frontend/

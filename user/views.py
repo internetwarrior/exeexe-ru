@@ -42,6 +42,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from .models import CustomUser
 
+
+
 class SearchUserView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -70,6 +72,16 @@ class SearchUserView(APIView):
 
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # Ensure the user is authenticated
+def get_user_info(request, id):
+    try:
+        user = CustomUser.objects.get(id=id)
+    except CustomUser.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    serializer = CustomUserSerializer(user)
+    return Response(serializer.data)
 
 
 #Profile
